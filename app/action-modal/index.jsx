@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig.jsx';
 
-export default function MedicationActionModal() {
+export default function ActionModal() {
   const medicine = useLocalSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);

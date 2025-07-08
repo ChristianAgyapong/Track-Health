@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Platform, StyleSheet } from 'react-native';
+import { View, ScrollView, Platform, StyleSheet, Text } from 'react-native';
 import Header from '../../component/Header';
 import EmptyState from '../../component/EmptyState';
 import MedicationList from '../../component/MedicationList';
@@ -13,6 +13,9 @@ const HomeScreen = () => {
     >
       <Header />
       <MedicationList />
+      <View>
+        <Text>Tabs Home</Text>
+      </View>
     </ScrollView>
   );
 };
