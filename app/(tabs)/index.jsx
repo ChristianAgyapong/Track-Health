@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { View, ScrollView, Platform, StyleSheet, Text } from 'react-native';
 import Header from '../../component/Header';
