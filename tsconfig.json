@@ -1,5 +1,7 @@
 {
-  "compilerOptions": {},
+  "compilerOptions": {
+    "moduleResolution": "nodenext"
+  },
   "extends": "expo/tsconfig.base",
   "include": [
     "**/*.ts",

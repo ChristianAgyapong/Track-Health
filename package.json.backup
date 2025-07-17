@@ -61,3 +61,14 @@
   },
   "private": true
 }
+
+## Step 3: Clean install dependencies
+
+````bash
+# Remove any existing node_modules and lock files
+rmdir /s /q node_modules
+del package-lock.json
+
+# Install dependencies fresh
+npm install
+````

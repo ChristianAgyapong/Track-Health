@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Alert } from 'react-native';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
@@ -9,10 +9,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 export default function History() {
   const router = useRouter();
   const [medHistory, setMedHistory] = useState([]);
-  const [selectedDate, setSelectedDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('all'); // 'all', 'taken', 'missed'
+  const [expandedMeds, setExpandedMeds] = useState({}); 
   const [statistics, setStatistics] = useState({
     total: 0,
     taken: 0,
@@ -68,15 +68,6 @@ export default function History() {
     fetchMedicationHistory().then(() => setRefreshing(false));
   }, []);
 
-  const formatTime24to12 = (time24) => {
-    if (!time24) return '';
-    const [hourStr, minute] = time24.split(':');
-    let hour = parseInt(hourStr, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12 || 12;
-    return `${hour}:${minute} ${ampm}`;
-  };
-
   const getFilteredHistory = () => {
     if (viewMode === 'all') return medHistory;
     
@@ -90,6 +81,13 @@ export default function History() {
     if (rate >= 80) return { color: '#2ed573', border: '#2ed573' };
     if (rate >= 60) return { color: '#ffa502', border: '#ffa502' };
     return { color: '#ff4757', border: '#ff4757' };
+  };
+
+  const toggleExpanded = (docId) => {
+    setExpandedMeds(prev => ({
+      ...prev,
+      [docId]: !prev[docId]
+    }));
   };
 
   const renderFilterButton = (mode, label, icon) => (
@@ -200,58 +198,75 @@ export default function History() {
               />
             </View>
           }
-          renderItem={({ item, index }) => (
-            <View style={[styles.historyCard, { marginTop: index === 0 ? 0 : 12 }]}>
-              <View style={styles.cardHeader}>
-                <Image
-                  source={item.type?.icon ? { uri: item.type.icon } : require('../../assets/images/smile4.jpg')}
-                  style={styles.medIcon}
-                />
-                <View style={styles.medInfo}>
-                  <Text style={styles.medName}>{item.name}</Text>
-                  <Text style={styles.medDosage}>
-                    {item.dosage} • {item.frequency}
-                  </Text>
-                  <Text style={styles.actionCount}>
-                    {item.actions.length} {item.actions.length === 1 ? 'record' : 'records'}
-                  </Text>
+          renderItem={({ item, index }) => {
+            const isExpanded = expandedMeds[item.docId];
+            const actionsToShow = isExpanded ? item.actions : item.actions.slice(0, 3);
+            
+            return (
+              <View style={[styles.historyCard, { marginTop: index === 0 ? 0 : 12 }]}>
+                <View style={styles.cardHeader}>
+                  <Image
+                    source={item.type?.icon ? { uri: item.type.icon } : require('../../assets/images/smile4.jpg')}
+                    style={styles.medIcon}
+                  />
+                  <View style={styles.medInfo}>
+                    <Text style={styles.medName}>{item.name}</Text>
+                    <Text style={styles.medDosage}>
+                      {item.dosage} • {item.frequency}
+                    </Text>
+                    <Text style={styles.actionCount}>
+                      {item.actions.length} {item.actions.length === 1 ? 'record' : 'records'}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.actionsContainer}>
+                  {actionsToShow.map((action, actionIndex) => (
+                    <View key={actionIndex} style={styles.actionRow}>
+                      <View style={[
+                        styles.statusIndicator,
+                        { backgroundColor: action.status === 'taken' ? '#e8f5e8' : '#ffe8e8' }
+                      ]}>
+                        <Ionicons 
+                          name={action.status === 'taken' ? 'checkmark' : 'close'} 
+                          size={14} 
+                          color={action.status === 'taken' ? '#2ed573' : '#ff4757'} 
+                        />
+                      </View>
+                      <View style={styles.actionDetails}>
+                        <Text style={styles.actionStatus}>
+                          {action.status.charAt(0).toUpperCase() + action.status.slice(1)}
+                        </Text>
+                        <Text style={styles.actionTime}>
+                          {new Date(action.timestamp).toLocaleDateString()} • {action.time}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                  
+                  {item.actions.length > 3 && (
+                    <TouchableOpacity 
+                      style={styles.showMoreButton}
+                      onPress={() => toggleExpanded(item.docId)}
+                    >
+                      <Text style={styles.showMoreText}>
+                        {isExpanded 
+                          ? 'Show less' 
+                          : `+${item.actions.length - 3} more records`
+                        }
+                      </Text>
+                      <Ionicons 
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                        size={16} 
+                        color="#007BFF" 
+                        style={{ marginLeft: 8 }}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-              
-              <View style={styles.actionsContainer}>
-                {item.actions.slice(0, 3).map((action, actionIndex) => (
-                  <View key={actionIndex} style={styles.actionRow}>
-                    <View style={[
-                      styles.statusIndicator,
-                      { backgroundColor: action.status === 'taken' ? '#e8f5e8' : '#ffe8e8' }
-                    ]}>
-                      <Ionicons 
-                        name={action.status === 'taken' ? 'checkmark' : 'close'} 
-                        size={14} 
-                        color={action.status === 'taken' ? '#2ed573' : '#ff4757'} 
-                      />
-                    </View>
-                    <View style={styles.actionDetails}>
-                      <Text style={styles.actionStatus}>
-                        {action.status.charAt(0).toUpperCase() + action.status.slice(1)}
-                      </Text>
-                      <Text style={styles.actionTime}>
-                        {new Date(action.timestamp).toLocaleDateString()} • {action.time}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-                
-                {item.actions.length > 3 && (
-                  <TouchableOpacity style={styles.showMoreButton}>
-                    <Text style={styles.showMoreText}>
-                      +{item.actions.length - 3} more records
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+            );
+          }}
         />
       </View>
     </ScrollView>
@@ -272,7 +287,6 @@ const styles = {
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    fontFamily: 'Outfit-Medium',
     color: '#666',
   },
   header: {
@@ -289,13 +303,12 @@ const styles = {
     elevation: 3,
   },
   headerText: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 28,
     color: '#1a1a1a',
     marginBottom: 4,
+    fontWeight: 'bold',
   },
   headerSubtext: {
-    fontFamily: 'Outfit-Regular',
     fontSize: 16,
     color: '#666',
   },
@@ -353,32 +366,27 @@ const styles = {
     elevation: 2,
   },
   adherenceRate: {
-    fontFamily: 'Outfit-ExtraBold',
     fontSize: 24,
     fontWeight: '800',
   },
   mainStatLabel: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 18,
     color: '#1a1a1a',
     marginBottom: 6,
     fontWeight: '700',
   },
   mainStatSubtext: {
-    fontFamily: 'Outfit-SemiBold',
     fontSize: 14,
     color: '#007BFF',
     fontWeight: '600',
   },
   statNumber: {
-    fontFamily: 'Outfit-ExtraBold',
     fontSize: 28,
     marginTop: 12,
     marginBottom: 6,
     fontWeight: '800',
   },
   statLabel: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 14,
     color: '#333',
     fontWeight: '600',
@@ -415,7 +423,6 @@ const styles = {
     elevation: 4,
   },
   filterButtonText: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 15,
     color: '#007BFF',
     fontWeight: '700',
@@ -460,21 +467,18 @@ const styles = {
     justifyContent: 'center',
   },
   medName: {
-    fontFamily: 'Outfit-ExtraBold',
     fontSize: 20,
     color: '#1a1a1a',
     marginBottom: 6,
     fontWeight: '800',
   },
   medDosage: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 16,
     color: '#007BFF',
     marginBottom: 4,
     fontWeight: '700',
   },
   actionCount: {
-    fontFamily: 'Outfit-SemiBold',
     fontSize: 13,
     color: '#666',
     backgroundColor: '#f8fbff',
@@ -513,20 +517,20 @@ const styles = {
     flex: 1,
   },
   actionStatus: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 16,
     color: '#1a1a1a',
     marginBottom: 4,
     fontWeight: '700',
   },
   actionTime: {
-    fontFamily: 'Outfit-SemiBold',
     fontSize: 14,
     color: '#007BFF',
     fontWeight: '600',
   },
   showMoreButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     marginTop: 8,
     backgroundColor: '#f0f8ff',
@@ -535,7 +539,6 @@ const styles = {
     borderColor: '#e6f0ff',
   },
   showMoreText: {
-    fontFamily: 'Outfit-Bold',
     fontSize: 15,
     color: '#007BFF',
     fontWeight: '700',
